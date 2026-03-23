@@ -5,53 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <title>Divine Comedy AR</title>
 
-  <!-- correct MindAR + Three.js CDN URLs -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-three.prod.js"></script>
+  <!-- MindAR 1.1.5 — THREE.js is bundled INSIDE this file as window.MINDAR.IMAGE.THREE -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-three.prod.js"></script>
 
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      background:#0d0902;
-      font-family: Georgia, serif;
-      color: #f2e8d5;
-      height: 100vh;
-      overflow: hidden;
-    }
+    body { background:#0d0902; font-family:Georgia,serif; color:#f2e8d5; height:100vh; overflow:hidden; }
 
     #start-screen {
-      position: fixed; inset: 0; z-index: 50;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 1.5rem; padding: 2rem; text-align: center;
-      background: radial-gradient(ellipse at 50% 40%, #2a1f0e, #0d0902);
+      position:fixed; inset:0; z-index:50;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:1.5rem; padding:2rem; text-align:center;
+      background:radial-gradient(ellipse at 50% 40%, #2a1f0e, #0d0902);
     }
     #start-screen h1 {
-      font-size: 1.8rem; letter-spacing: 0.15em;
-      color: #d4a017;
-      text-shadow: 0 0 30px #d4a01788;
-      line-height: 1.3;
+      font-size:1.8rem; letter-spacing:0.15em; color:#d4a017;
+      text-shadow:0 0 30px #d4a01788; line-height:1.3;
     }
-    #start-screen p {
-      font-size: 0.82rem; color: #c8b890; line-height: 1.9;
-      max-width: 300px; font-style: italic;
-    }
+    #start-screen p { font-size:0.82rem; color:#c8b890; line-height:1.9; max-width:300px; font-style:italic; }
     #start-btn {
-      background: #d4a017; color: #0d0902;
-      border: none; padding: 1rem 2.5rem;
-      font-size: 0.9rem; letter-spacing: 0.2em;
-      font-family: Georgia, serif;
-      cursor: pointer; text-transform: uppercase;
-      border-radius: 2px; width: 100%; max-width: 280px;
+      background:#d4a017; color:#0d0902; border:none;
+      padding:1rem 2.5rem; font-size:0.9rem; letter-spacing:0.2em;
+      font-family:Georgia,serif; cursor:pointer; text-transform:uppercase;
+      border-radius:2px; width:100%; max-width:280px;
     }
-    #start-btn:disabled { background: #7a6010; color: #3a2a00; }
-    .hint { font-size: 0.62rem; color: #7a6840; letter-spacing: 0.1em; }
+    #start-btn:disabled { background:#7a6010; color:#3a2a00; cursor:default; }
+    .hint { font-size:0.62rem; color:#7a6840; letter-spacing:0.1em; }
 
-    #ar-container { position: fixed; inset: 0; z-index: 10; display: none; }
-    #ar-container.active { display: block; }
+    #ar-container { position:fixed; inset:0; z-index:10; display:none; }
+    #ar-container.active { display:block; }
 
-    #hud { position: fixed; inset: 0; z-index: 30; pointer-events: none; display: none; }
-    #hud.active { display: block; }
+    #hud { position:fixed; inset:0; z-index:30; pointer-events:none; display:none; }
+    #hud.active { display:block; }
     .corner { position:absolute; width:32px; height:32px; border-color:rgba(212,160,23,0.6); border-style:solid; }
     .tl{top:16px;left:16px;border-width:2px 0 0 2px;}
     .tr{top:16px;right:16px;border-width:2px 2px 0 0;}
@@ -65,7 +50,7 @@
     #hud-status {
       position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
       font-size:0.6rem; letter-spacing:0.2em; color:rgba(212,160,23,0.7);
-      white-space:nowrap; animation: blink 2s infinite;
+      white-space:nowrap; animation:blink 2s infinite;
     }
     @keyframes blink{0%,100%{opacity:0.4}50%{opacity:1}}
     #info-card {
@@ -79,18 +64,13 @@
     #info-card p  { font-size:0.68rem; color:#c8b890; line-height:1.7; font-style:italic; }
 
     #error-box {
-      position: fixed; inset: 0; z-index: 100;
-      background: rgba(0,0,0,0.94);
-      display: none; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 1.2rem; padding: 2rem; text-align: center;
+      position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.94);
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      gap:1.2rem; padding:2rem; text-align:center;
     }
-    #error-box.show { display: flex; }
-    #error-box h2 { color: #d4a017; font-size: 1rem; letter-spacing: 0.15em; }
-    #error-msg {
-      color: #c8b890; font-size: 0.72rem; line-height: 1.9;
-      max-width: 320px; white-space: pre-line;
-    }
+    #error-box.show { display:flex; }
+    #error-box h2 { color:#d4a017; font-size:1rem; letter-spacing:0.15em; }
+    #error-msg { color:#c8b890; font-size:0.72rem; line-height:1.9; max-width:320px; white-space:pre-line; }
     #retry-btn {
       background:#d4a017; color:#0d0902; border:none;
       padding:0.8rem 2rem; font-size:0.8rem; letter-spacing:0.15em;
@@ -129,170 +109,179 @@
   <button id="retry-btn" onclick="location.reload()">↺ Try Again</button>
 </div>
 
-<script>
-async function startAR() {
-  const btn = document.getElementById('start-btn');
-  btn.textContent = 'Loading…';
-  btn.disabled = true;
+<script type="module">
+  // THREE is bundled inside MindAR 1.1.5 — access it here
+  const THREE = window.MINDAR.IMAGE.THREE;
 
-  // 1. Request camera permission via user gesture
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal:'environment' } } });
-    s.getTracks().forEach(t => t.stop());
-  } catch(err) {
-    if (err.name === 'NotAllowedError') {
-      showError('Camera permission denied.\n\nPlease:\n1. Tap the 🔒 lock in Chrome\'s address bar\n2. Set Camera → Allow\n3. Reload the page and try again.');
-    } else {
-      showError('Camera error: ' + err.name + '\n' + err.message);
+  window.startAR = async function() {
+    const btn = document.getElementById('start-btn');
+    btn.textContent = 'Loading…';
+    btn.disabled = true;
+
+    // 1. Explicitly request camera (must be triggered by user tap)
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }
+      });
+      s.getTracks().forEach(t => t.stop());
+    } catch(err) {
+      if (err.name === 'NotAllowedError') {
+        showError('Camera permission denied.\n\nPlease:\n1. Tap the 🔒 lock icon in Chrome\n2. Set Camera → Allow\n3. Reload the page');
+      } else {
+        showError('Camera error: ' + err.name + '\n' + err.message);
+      }
+      return;
     }
-    return;
-  }
 
-  // 2. Check MindAR loaded correctly
-  if (!window.MINDAR || !window.MINDAR.IMAGE) {
-    showError('MindAR library failed to load.\n\nPlease check your internet connection and reload.');
-    return;
-  }
+    // 2. Show AR view
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('hud').classList.add('active');
+    document.getElementById('ar-container').classList.add('active');
 
-  // 3. Switch to AR view
-  document.getElementById('start-screen').style.display = 'none';
-  document.getElementById('hud').classList.add('active');
-  document.getElementById('ar-container').classList.add('active');
+    // 3. Init MindAR
+    let mindarThree;
+    try {
+      mindarThree = new window.MINDAR.IMAGE.MindARThree({
+        container: document.getElementById('ar-container'),
+        imageTargetSrc: './targets.mind',
+        uiLoading: 'yes',
+        uiError: 'yes',
+        uiScanning: 'yes',
+      });
+    } catch(err) {
+      showError('MindAR init error:\n' + err.message);
+      return;
+    }
 
-  // 4. Init MindAR
-  let mindarThree;
-  try {
-    mindarThree = new window.MINDAR.IMAGE.MindARThree({
-      container: document.getElementById('ar-container'),
-      imageTargetSrc: './targets.mind',
-      uiLoading: 'yes',
-      uiError: 'yes',
-      uiScanning: 'yes',
+    const { renderer, scene, camera } = mindarThree;
+
+    // 4. Build animated 3D walking figure
+    const skinMat  = new THREE.MeshPhongMaterial({ color: 0xc09070 });
+    const clothMat = new THREE.MeshPhongMaterial({ color: 0x4a6878 });
+    const darkMat  = new THREE.MeshPhongMaterial({ color: 0x2a1a0a });
+
+    function cyl(rx, h, mat) {
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(new THREE.CylinderGeometry(rx, rx, h, 8), mat));
+      const top = new THREE.Mesh(new THREE.SphereGeometry(rx, 8, 6), mat);
+      const bot = new THREE.Mesh(new THREE.SphereGeometry(rx, 8, 6), mat);
+      top.position.y = h/2; bot.position.y = -h/2;
+      g.add(top, bot); return g;
+    }
+    function sph(r, mat) {
+      return new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat);
+    }
+
+    const figure = new THREE.Group();
+    figure.scale.setScalar(0.55);
+    figure.position.set(0, -0.1, 0.01);
+
+    // Torso, head, neck
+    const torso = cyl(0.08, 0.30, clothMat); torso.position.y = 0.15;
+    const head  = sph(0.10, skinMat);         head.position.y  = 0.42;
+    const hair  = sph(0.105, darkMat);        hair.position.y  = 0.46;
+    const neck  = cyl(0.035, 0.07, skinMat);  neck.position.y  = 0.32;
+
+    // Left arm
+    const lAG = new THREE.Group(); lAG.position.set(-0.12, 0.27, 0);
+    const lAU = cyl(0.04, 0.16, clothMat); lAU.position.y = -0.08; lAG.add(lAU);
+    const lALG = new THREE.Group(); lALG.position.y = -0.18;
+    const lAL = cyl(0.035, 0.14, clothMat); lAL.position.y = -0.07;
+    const lH = sph(0.042, skinMat); lH.position.y = -0.15;
+    lALG.add(lAL, lH); lAG.add(lALG);
+
+    // Right arm
+    const rAG = new THREE.Group(); rAG.position.set(0.12, 0.27, 0);
+    const rAU = cyl(0.04, 0.16, clothMat); rAU.position.y = -0.08; rAG.add(rAU);
+    const rALG = new THREE.Group(); rALG.position.y = -0.18;
+    const rAL = cyl(0.035, 0.14, clothMat); rAL.position.y = -0.07;
+    const rH = sph(0.042, skinMat); rH.position.y = -0.15;
+    rALG.add(rAL, rH); rAG.add(rALG);
+
+    // Hips + legs
+    const hipG = new THREE.Group(); hipG.position.y = -0.14;
+    hipG.add(cyl(0.07, 0.12, clothMat));
+
+    const lLG = new THREE.Group(); lLG.position.set(-0.07, -0.06, 0);
+    const lLU = cyl(0.055, 0.20, clothMat); lLU.position.y = -0.10; lLG.add(lLU);
+    const lLLG = new THREE.Group(); lLLG.position.y = -0.22;
+    const lLL = cyl(0.045, 0.18, clothMat); lLL.position.y = -0.09;
+    const lF = cyl(0.04, 0.10, darkMat); lF.position.set(0.02, -0.20, 0.04); lF.rotation.z = 0.3;
+    lLLG.add(lLL, lF); lLG.add(lLLG); hipG.add(lLG);
+
+    const rLG = new THREE.Group(); rLG.position.set(0.07, -0.06, 0);
+    const rLU = cyl(0.055, 0.20, clothMat); rLU.position.y = -0.10; rLG.add(rLU);
+    const rLLG = new THREE.Group(); rLLG.position.y = -0.22;
+    const rLL = cyl(0.045, 0.18, clothMat); rLL.position.y = -0.09;
+    const rF = cyl(0.04, 0.10, darkMat); rF.position.set(-0.02, -0.20, 0.04); rF.rotation.z = -0.3;
+    rLLG.add(rLL, rF); rLG.add(rLLG); hipG.add(rLG);
+
+    // Gold aura ring on floor
+    const auraM = new THREE.MeshBasicMaterial({
+      color: 0xd4a017, side: THREE.DoubleSide, transparent: true, opacity: 0.2
     });
-  } catch(err) {
-    showError('MindAR init error:\n' + err.message); return;
+    const aura = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.34, 32), auraM);
+    aura.rotation.x = -Math.PI / 2; aura.position.y = -0.58;
+
+    figure.add(aura, hipG, torso, lAG, rAG, neck, head, hair);
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0xfff5e0, 0.9));
+    const dl = new THREE.DirectionalLight(0xffd090, 1.3); dl.position.set(1, 3, 2); scene.add(dl);
+    const pl = new THREE.PointLight(0xd4a017, 0.7, 3); pl.position.set(0, 0.5, 0.5); scene.add(pl);
+
+    // Anchor to marker
+    const anchor = mindarThree.addAnchor(0);
+    anchor.group.add(figure);
+
+    anchor.onTargetFound = () => {
+      document.getElementById('hud-status').textContent = '◈ Presence revealed ◈';
+      document.getElementById('info-card').classList.add('show');
+    };
+    anchor.onTargetLost = () => {
+      document.getElementById('hud-status').textContent = '⬡ Scanning for marker ⬡';
+      document.getElementById('info-card').classList.remove('show');
+    };
+
+    // 5. Animation loop — walking cycle
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      const T = clock.getElapsedTime();
+      const ws = 2.2;
+
+      lLG.rotation.x  =  Math.sin(T * ws) * 0.45;
+      rLG.rotation.x  = -Math.sin(T * ws) * 0.45;
+      lLLG.rotation.x = Math.max(0, -Math.sin(T * ws) * 0.5);
+      rLLG.rotation.x = Math.max(0,  Math.sin(T * ws) * 0.5);
+      lAG.rotation.x  = -Math.sin(T * ws) * 0.4;
+      rAG.rotation.x  =  Math.sin(T * ws) * 0.4;
+      lALG.rotation.x = 0.15 + Math.max(0,  Math.sin(T * ws) * 0.2);
+      rALG.rotation.x = 0.15 + Math.max(0, -Math.sin(T * ws) * 0.2);
+      torso.rotation.z = Math.sin(T * ws) * 0.04;
+      torso.rotation.y = Math.sin(T * ws) * 0.06;
+      head.rotation.x  = Math.sin(T * 1.1) * 0.04;
+      hipG.position.y  = -0.14 + Math.abs(Math.sin(T * ws)) * 0.015;
+      figure.position.y = -0.1 + Math.abs(Math.sin(T * ws)) * 0.015;
+      auraM.opacity    = 0.12 + Math.sin(T * 1.5) * 0.06;
+      aura.scale.setScalar(1 + Math.sin(T * 1.5) * 0.05);
+
+      mindarThree.renderer.render(scene, camera);
+    });
+
+    // 6. Start
+    try {
+      await mindarThree.start();
+    } catch(err) {
+      showError('AR start failed:\n' + err.message +
+        '\n\nMake sure targets.mind is in the root of your GitHub repo.');
+    }
   }
 
-  const { renderer, scene, camera } = mindarThree;
-
-  // 5. Build 3D walking figure with Three.js
-  const skinMat  = new THREE.MeshPhongMaterial({ color: 0xc09070 });
-  const clothMat = new THREE.MeshPhongMaterial({ color: 0x4a6878 });
-  const darkMat  = new THREE.MeshPhongMaterial({ color: 0x2a1a0a });
-
-  function cyl(rx, h, mat) {
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(new THREE.CylinderGeometry(rx, rx, h, 8), mat));
-    const top = new THREE.Mesh(new THREE.SphereGeometry(rx, 8, 6), mat);
-    const bot = new THREE.Mesh(new THREE.SphereGeometry(rx, 8, 6), mat);
-    top.position.y = h/2; bot.position.y = -h/2;
-    g.add(top, bot); return g;
+  function showError(msg) {
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('error-msg').textContent = msg;
+    document.getElementById('error-box').classList.add('show');
   }
-  function sph(r, mat) {
-    return new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat);
-  }
-
-  const figure = new THREE.Group();
-  figure.scale.setScalar(0.55);
-  figure.position.set(0, -0.1, 0.01);
-
-  const torso = cyl(0.08, 0.30, clothMat); torso.position.y = 0.15;
-  const head  = sph(0.10, skinMat);         head.position.y  = 0.42;
-  const hair  = sph(0.105, darkMat);        hair.position.y  = 0.46;
-  const neck  = cyl(0.035, 0.07, skinMat);  neck.position.y  = 0.32;
-
-  const lAG = new THREE.Group(); lAG.position.set(-0.12, 0.27, 0);
-  const lAU = cyl(0.04,0.16,clothMat); lAU.position.y=-0.08; lAG.add(lAU);
-  const lALG= new THREE.Group(); lALG.position.y=-0.18;
-  lALG.add(cyl(0.035,0.14,clothMat), Object.assign(sph(0.042,skinMat),{position:{y:-0.15,x:0,z:0}}));
-  lALG.children[1].position.y=-0.15; lAG.add(lALG);
-
-  const rAG = new THREE.Group(); rAG.position.set(0.12, 0.27, 0);
-  const rAU = cyl(0.04,0.16,clothMat); rAU.position.y=-0.08; rAG.add(rAU);
-  const rALG= new THREE.Group(); rALG.position.y=-0.18;
-  rALG.add(cyl(0.035,0.14,clothMat), sph(0.042,skinMat));
-  rALG.children[1].position.y=-0.15; rAG.add(rALG);
-
-  const hipG= new THREE.Group(); hipG.position.y=-0.14;
-  hipG.add(cyl(0.07,0.12,clothMat));
-
-  const lLG = new THREE.Group(); lLG.position.set(-0.07,-0.06,0);
-  const lLU = cyl(0.055,0.20,clothMat); lLU.position.y=-0.10; lLG.add(lLU);
-  const lLLG= new THREE.Group(); lLLG.position.y=-0.22;
-  const lLL = cyl(0.045,0.18,clothMat); lLL.position.y=-0.09;
-  const lF  = cyl(0.04,0.10,darkMat);
-  lF.position.set(0.02,-0.20,0.04); lF.rotation.z=0.3;
-  lLLG.add(lLL,lF); lLG.add(lLLG); hipG.add(lLG);
-
-  const rLG = new THREE.Group(); rLG.position.set(0.07,-0.06,0);
-  const rLU = cyl(0.055,0.20,clothMat); rLU.position.y=-0.10; rLG.add(rLU);
-  const rLLG= new THREE.Group(); rLLG.position.y=-0.22;
-  const rLL = cyl(0.045,0.18,clothMat); rLL.position.y=-0.09;
-  const rF  = cyl(0.04,0.10,darkMat);
-  rF.position.set(-0.02,-0.20,0.04); rF.rotation.z=-0.3;
-  rLLG.add(rLL,rF); rLG.add(rLLG); hipG.add(rLG);
-
-  const auraM = new THREE.MeshBasicMaterial({
-    color:0xd4a017, side:THREE.DoubleSide, transparent:true, opacity:0.2
-  });
-  const aura = new THREE.Mesh(new THREE.RingGeometry(0.18,0.34,32), auraM);
-  aura.rotation.x = -Math.PI/2; aura.position.y = -0.58;
-
-  figure.add(aura, hipG, torso, lAG, rAG, neck, head, hair);
-
-  scene.add(new THREE.AmbientLight(0xfff5e0, 0.9));
-  const dl = new THREE.DirectionalLight(0xffd090, 1.3);
-  dl.position.set(1,3,2); scene.add(dl);
-  const pl = new THREE.PointLight(0xd4a017, 0.7, 3);
-  pl.position.set(0,0.5,0.5); scene.add(pl);
-
-  const anchor = mindarThree.addAnchor(0);
-  anchor.group.add(figure);
-
-  anchor.onTargetFound = () => {
-    document.getElementById('hud-status').textContent = '◈ Presence revealed ◈';
-    document.getElementById('info-card').classList.add('show');
-  };
-  anchor.onTargetLost = () => {
-    document.getElementById('hud-status').textContent = '⬡ Scanning for marker ⬡';
-    document.getElementById('info-card').classList.remove('show');
-  };
-
-  const clock = new THREE.Clock();
-  renderer.setAnimationLoop(() => {
-    const T = clock.getElapsedTime(), ws = 2.2;
-    lLG.rotation.x  =  Math.sin(T*ws)*0.45;
-    rLG.rotation.x  = -Math.sin(T*ws)*0.45;
-    lLLG.rotation.x = Math.max(0, -Math.sin(T*ws)*0.5);
-    rLLG.rotation.x = Math.max(0,  Math.sin(T*ws)*0.5);
-    lAG.rotation.x  = -Math.sin(T*ws)*0.4;
-    rAG.rotation.x  =  Math.sin(T*ws)*0.4;
-    lALG.rotation.x = 0.15 + Math.max(0,  Math.sin(T*ws)*0.2);
-    rALG.rotation.x = 0.15 + Math.max(0, -Math.sin(T*ws)*0.2);
-    torso.rotation.z = Math.sin(T*ws)*0.04;
-    torso.rotation.y = Math.sin(T*ws)*0.06;
-    head.rotation.x  = Math.sin(T*1.1)*0.04;
-    hipG.position.y  = -0.14 + Math.abs(Math.sin(T*ws))*0.015;
-    figure.position.y = -0.1 + Math.abs(Math.sin(T*ws))*0.015;
-    auraM.opacity    = 0.12 + Math.sin(T*1.5)*0.06;
-    aura.scale.setScalar(1 + Math.sin(T*1.5)*0.05);
-    mindarThree.renderer.render(scene, camera);
-  });
-
-  // 6. Start AR
-  try {
-    await mindarThree.start();
-  } catch(err) {
-    showError('AR start failed:\n' + err.message +
-      '\n\nCheck that targets.mind is in your GitHub repo root folder.');
-  }
-}
-
-function showError(msg) {
-  document.getElementById('start-screen').style.display = 'none';
-  document.getElementById('error-msg').textContent = msg;
-  document.getElementById('error-box').classList.add('show');
-}
 </script>
 </body>
 </html>
