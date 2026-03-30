@@ -17,35 +17,32 @@
       gap:20px; padding:30px; text-align:center;
       font-family:Georgia,serif; color:#f2e8d5;
     }
-    h1 { font-size:2rem; color:#d4a017; }
+    h1 { font-size:2rem; color:#d4a017; line-height:1.2; }
     p  { font-size:0.85rem; color:#c8b890; line-height:1.8; font-style:italic; max-width:280px; }
     button {
       background:#d4a017; color:#000; border:none;
       padding:16px 36px; font-size:1rem;
       font-family:Georgia,serif; cursor:pointer;
-      letter-spacing:0.1em; border-radius:3px;
-      width:260px;
+      letter-spacing:0.1em; border-radius:3px; width:260px;
     }
 
-    #scene-container {
-      position:fixed; inset:0; display:none;
-    }
+    #scene-container { position:fixed; inset:0; display:none; }
 
     #msg {
       position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
-      z-index:50; background:rgba(0,0,0,0.6);
+      z-index:50; background:rgba(0,0,0,0.65);
       color:#d4a017; font-family:Georgia,serif;
-      font-size:0.75rem; letter-spacing:0.2em;
-      padding:8px 20px; pointer-events:none;
-      white-space:nowrap;
+      font-size:0.72rem; letter-spacing:0.2em;
+      padding:8px 22px; pointer-events:none; white-space:nowrap;
+      border:1px solid rgba(212,160,23,0.3);
     }
   </style>
 </head>
 <body>
 
 <div id="start">
-  <h1>Divine Comedy AR</h1>
-  <p>Point your camera at the printed marker — a figure from Dante's journey will appear.</p>
+  <h1>Divine<br>Comedy AR</h1>
+  <p>Point your camera at the printed marker — an elderly figure will emerge from the cabinet.</p>
   <button onclick="launch()">Open Camera</button>
 </div>
 
@@ -54,13 +51,11 @@
 
 <script>
 async function launch() {
-
-  // Request camera first (must come from user tap)
   try {
     const st = await navigator.mediaDevices.getUserMedia({ video:true });
     st.getTracks().forEach(t => t.stop());
   } catch(e) {
-    alert('Camera denied. Please allow camera access in your browser settings, then reload.');
+    alert('Camera denied. Please allow camera in browser settings and reload.');
     return;
   }
 
@@ -80,166 +75,355 @@ async function launch() {
 
   const { renderer, scene, camera } = mindarThree;
 
-  // ── Lighting ──
-  scene.add(new THREE.AmbientLight(0xfff0d0, 0.7));
-  const sun = new THREE.DirectionalLight(0xffe8b0, 1.4);
-  sun.position.set(2, 4, 3); scene.add(sun);
-  const fill = new THREE.DirectionalLight(0x8090c0, 0.4);
-  fill.position.set(-2, 1, 2); scene.add(fill);
-  const gold = new THREE.PointLight(0xd4a017, 0.8, 3);
-  gold.position.set(0, 0.5, 0.8); scene.add(gold);
+  // ── Lighting: warm, museum-like ──
+  scene.add(new THREE.AmbientLight(0xfff8f0, 0.6));
+  const key = new THREE.DirectionalLight(0xffeedd, 1.4);
+  key.position.set(1, 3, 2); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xc0d0ff, 0.35);
+  fill.position.set(-2, 1, 1); scene.add(fill);
+  const back = new THREE.DirectionalLight(0xffd090, 0.4);
+  back.position.set(0, 2, -3); scene.add(back);
+  const glow = new THREE.PointLight(0xfff0d0, 0.5, 3);
+  glow.position.set(0, 0.3, 0.6); scene.add(glow);
 
-  // ── Materials ──
-  const skin   = new THREE.MeshPhongMaterial({ color:0xc8a882 });
-  const robe   = new THREE.MeshPhongMaterial({ color:0x2e2248 });
-  const cloak  = new THREE.MeshPhongMaterial({ color:0x7a0f0f });
-  const dark   = new THREE.MeshPhongMaterial({ color:0x18100a });
-  const leaf   = new THREE.MeshPhongMaterial({ color:0x3a5820 });
+  // ── Materials — realistic, aged human ──
+  const skinM  = new THREE.MeshPhongMaterial({ color:0xc8a07a, shininess:15 });
+  const skin2M = new THREE.MeshPhongMaterial({ color:0xb89060, shininess:10 }); // slightly darker for limbs
+  const clothM = new THREE.MeshPhongMaterial({ color:0xd8cdb8, shininess:5 });  // off-white shirt
+  const pantsM = new THREE.MeshPhongMaterial({ color:0x5a6070, shininess:4 });  // grey trousers
+  const shoeM  = new THREE.MeshPhongMaterial({ color:0x2a1f14, shininess:20 });
+  const hairM  = new THREE.MeshPhongMaterial({ color:0x888070, shininess:5 });  // grey hair (elderly)
 
-  // ── Helper builders ──
-  function C(rt, rb, h, mat, s=8) {
+  // ── Geometry helpers ──
+  function cyl(rt, rb, h, mat, seg=8) {
     const g = new THREE.Group();
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,s), mat);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
     g.add(m);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(rt, seg, 6), mat);
+    const bot = new THREE.Mesh(new THREE.SphereGeometry(rb, seg, 6), mat);
+    top.position.y = h/2; bot.position.y = -h/2;
+    g.add(top, bot);
     return g;
   }
-  function S(r, mat) { return new THREE.Mesh(new THREE.SphereGeometry(r,10,8), mat); }
-  function B(w,h,d, mat) { return new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); }
-
-  // ── Figure root ──
-  const fig = new THREE.Group();
-  fig.scale.setScalar(0.65);
-  fig.position.y = 0.05;
-
-  // Robe (long, wide at base)
-  const robeMain = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.24,0.75,10), robe);
-  robeMain.position.y = -0.04;
-  const robeHem = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.28,0.08,10), dark);
-  robeHem.position.y = -0.40;
-
-  // Cloak draped over back/shoulders
-  const cloakMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.22,0.60,9), cloak);
-  cloakMesh.position.set(0, -0.02, -0.02);
-
-  // Torso
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.12,0.26,9), robe);
-  torso.position.y = 0.20;
-
-  // Sash
-  const sash = B(0.035, 0.26, 0.055, cloak);
-  sash.position.set(-0.035, 0.20, 0.095); sash.rotation.z = 0.12;
-
-  // ── Arms ──
-  // Left — bent forward slightly
-  const lSh = new THREE.Group(); lSh.position.set(-0.12, 0.26, 0); lSh.rotation.z = 0.35; lSh.rotation.x = 0.25;
-  const lUA = new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.22,7), robe); lUA.position.y=-0.11; lSh.add(lUA);
-  const lEl = new THREE.Group(); lEl.position.y=-0.23; lEl.rotation.x=-0.55;
-  const lFA = new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.040,0.20,7), robe); lFA.position.y=-0.10;
-  const lHd = S(0.044, skin); lHd.position.y=-0.21; lHd.scale.set(1,0.82,0.72);
-  lEl.add(lFA, lHd); lSh.add(lEl);
-
-  // Right — slightly raised, gesture of wonder
-  const rSh = new THREE.Group(); rSh.position.set(0.12, 0.26, 0); rSh.rotation.z=-0.22; rSh.rotation.x=-0.20;
-  const rUA = new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.22,7), robe); rUA.position.y=-0.11; rSh.add(rUA);
-  const rEl = new THREE.Group(); rEl.position.y=-0.23; rEl.rotation.x=0.35;
-  const rFA = new THREE.Mesh(new THREE.CylinderGeometry(0.034,0.040,0.20,7), robe); rFA.position.y=-0.10;
-  const rHd = S(0.044, skin); rHd.position.y=-0.21; rHd.scale.set(1,0.82,0.72);
-  rEl.add(rFA, rHd); rSh.add(rEl);
-
-  // ── Head group ──
-  const headG = new THREE.Group(); headG.position.y = 0.50;
-
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.046,0.10,8), skin); neck.position.y=-0.07;
-
-  const headM = S(0.105, skin); headM.scale.set(0.93,1.0,0.91);
-
-  // Aquiline nose
-  const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.020,0.055,6), skin);
-  nose.position.set(0,-0.008,0.096); nose.rotation.x=-0.44;
-
-  // Brow
-  const brow = B(0.13,0.018,0.022, skin);
-  brow.position.set(0,0.042,0.088); brow.rotation.x=-0.18;
-
-  // Eyes
-  const ewL = S(0.019, new THREE.MeshPhongMaterial({color:0xf0e8d8})); ewL.position.set(-0.037,0.020,0.084);
-  const ewR = S(0.019, new THREE.MeshPhongMaterial({color:0xf0e8d8})); ewR.position.set( 0.037,0.020,0.084);
-  const eyL = S(0.015, new THREE.MeshPhongMaterial({color:0x120c06})); eyL.position.set(-0.037,0.020,0.090);
-  const eyR = S(0.015, new THREE.MeshPhongMaterial({color:0x120c06})); eyR.position.set( 0.037,0.020,0.090);
-
-  // Mouth
-  const mouth = B(0.052,0.011,0.016, new THREE.MeshPhongMaterial({color:0x7a4a3a}));
-  mouth.position.set(0,-0.040,0.093);
-
-  // Hair
-  const hairCap = S(0.110, dark); hairCap.position.y=0.018; hairCap.scale.set(0.94,0.74,0.92);
-
-  // ── Laurel wreath ──
-  const wreath = new THREE.Group(); wreath.position.y=0.070;
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.094,0.007,6,24), leaf);
-  ring.rotation.x = Math.PI/2; wreath.add(ring);
-  for (let i=0; i<20; i++) {
-    const a = (i/20)*Math.PI*2;
-    const lf = new THREE.Mesh(new THREE.SphereGeometry(0.018,5,4), leaf);
-    lf.position.set(Math.cos(a)*0.096, Math.sin(a*2)*0.010, Math.sin(a)*0.088);
-    lf.scale.set(0.5,1.5,0.4); lf.rotation.y=a;
-    wreath.add(lf);
+  function sph(r, mat, w=10, h=8) {
+    return new THREE.Mesh(new THREE.SphereGeometry(r, w, h), mat);
+  }
+  function box(w, h, d, mat) {
+    return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   }
 
-  headG.add(neck, hairCap, headM, brow, nose, ewL, ewR, eyL, eyR, mouth, wreath);
+  // ══════════════════════════════════════════════
+  //  FIGURE — realistic elderly human proportions
+  // ══════════════════════════════════════════════
+  const fig = new THREE.Group();
+  fig.scale.setScalar(0.60);
+  fig.position.set(0, -0.30, 0.01);
 
-  // ── Halo ──
-  const haloM = new THREE.MeshBasicMaterial({color:0xf0c030, side:THREE.DoubleSide, transparent:true, opacity:0.28});
-  const halo = new THREE.Mesh(new THREE.RingGeometry(0.112,0.145,32), haloM);
-  halo.position.y = 0.58; halo.rotation.x = -0.20;
+  // ── TORSO ──
+  const torsoG = new THREE.Group();
+  torsoG.position.y = 0.52;
 
-  // ── Ground aura ──
-  const auraM = new THREE.MeshBasicMaterial({color:0xd4a017, side:THREE.DoubleSide, transparent:true, opacity:0.18});
-  const aura = new THREE.Mesh(new THREE.RingGeometry(0.20,0.38,36), auraM);
-  aura.rotation.x = -Math.PI/2; aura.position.y = -0.46;
+  // Chest (shirt)
+  const chest = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.115, 0.125, 0.35, 10), clothM
+  );
+  // Belly (slightly rounder — elderly)
+  const belly = new THREE.Mesh(
+    new THREE.SphereGeometry(0.13, 10, 8), clothM
+  );
+  belly.scale.set(1, 0.7, 0.95);
+  belly.position.y = -0.14;
 
-  fig.add(aura, halo, robeHem, cloakMesh, robeMain, torso, sash, lSh, rSh, headG);
+  // Shirt collar detail
+  const collar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.052, 0.062, 0.06, 8), clothM
+  );
+  collar.position.y = 0.19;
+
+  torsoG.add(chest, belly, collar);
+
+  // ── HIPS ──
+  const hipG = new THREE.Group();
+  hipG.position.y = 0.28;
+  const hips = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.125, 0.115, 0.18, 10), pantsM
+  );
+  hipG.add(hips);
+
+  // ── LEFT LEG ──
+  const lLegG = new THREE.Group();
+  lLegG.position.set(-0.065, 0.18, 0);
+
+  const lThigh = cyl(0.060, 0.055, 0.30, pantsM);
+  lThigh.position.y = -0.15;
+
+  const lKneeG = new THREE.Group();
+  lKneeG.position.y = -0.32;
+
+  const lShin = cyl(0.048, 0.040, 0.28, pantsM);
+  lShin.position.y = -0.14;
+
+  const lFoot = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.055, 0.15), shoeM);
+  lFoot.position.set(0.005, -0.295, 0.035);
+
+  lKneeG.add(lShin, lFoot);
+  lLegG.add(lThigh, lKneeG);
+
+  // ── RIGHT LEG ──
+  const rLegG = new THREE.Group();
+  rLegG.position.set(0.065, 0.18, 0);
+
+  const rThigh = cyl(0.060, 0.055, 0.30, pantsM);
+  rThigh.position.y = -0.15;
+
+  const rKneeG = new THREE.Group();
+  rKneeG.position.y = -0.32;
+
+  const rShin = cyl(0.048, 0.040, 0.28, pantsM);
+  rShin.position.y = -0.14;
+
+  const rFoot = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.055, 0.15), shoeM);
+  rFoot.position.set(-0.005, -0.295, 0.035);
+
+  rKneeG.add(rShin, rFoot);
+  rLegG.add(rThigh, rKneeG);
+
+  // ── LEFT ARM ──
+  const lShoulderG = new THREE.Group();
+  lShoulderG.position.set(-0.135, 0.62, 0);
+
+  const lUpperArm = cyl(0.045, 0.040, 0.26, clothM);
+  lUpperArm.position.y = -0.13;
+
+  const lElbowG = new THREE.Group();
+  lElbowG.position.y = -0.27;
+
+  const lForearm = cyl(0.036, 0.030, 0.24, skin2M);
+  lForearm.position.y = -0.12;
+
+  // Hand — more detailed
+  const lHandG = new THREE.Group();
+  lHandG.position.y = -0.25;
+  const lPalm = sph(0.046, skinM); lPalm.scale.set(1, 0.75, 0.65);
+  // Fingers (simplified — 3 small cylinders)
+  for (let f = 0; f < 3; f++) {
+    const finger = cyl(0.010, 0.008, 0.055, skinM);
+    finger.position.set((f-1)*0.022, -0.048, 0.018);
+    finger.rotation.x = 0.3;
+    lHandG.add(finger);
+  }
+  lHandG.add(lPalm);
+  lElbowG.add(lForearm, lHandG);
+  lShoulderG.add(lUpperArm, lElbowG);
+
+  // ── RIGHT ARM ──
+  const rShoulderG = new THREE.Group();
+  rShoulderG.position.set(0.135, 0.62, 0);
+
+  const rUpperArm = cyl(0.045, 0.040, 0.26, clothM);
+  rUpperArm.position.y = -0.13;
+
+  const rElbowG = new THREE.Group();
+  rElbowG.position.y = -0.27;
+
+  const rForearm = cyl(0.036, 0.030, 0.24, skin2M);
+  rForearm.position.y = -0.12;
+
+  const rHandG = new THREE.Group();
+  rHandG.position.y = -0.25;
+  const rPalm = sph(0.046, skinM); rPalm.scale.set(1, 0.75, 0.65);
+  for (let f = 0; f < 3; f++) {
+    const finger = cyl(0.010, 0.008, 0.055, skinM);
+    finger.position.set((f-1)*0.022, -0.048, 0.018);
+    finger.rotation.x = 0.3;
+    rHandG.add(finger);
+  }
+  rHandG.add(rPalm);
+  rElbowG.add(rForearm, rHandG);
+  rShoulderG.add(rUpperArm, rElbowG);
+
+  // ── HEAD ──
+  const headG = new THREE.Group();
+  headG.position.y = 0.86;
+
+  const neckMesh = cyl(0.042, 0.050, 0.12, skinM);
+  neckMesh.position.y = -0.09;
+
+  const headMesh = sph(0.112, skinM, 12, 10);
+  headMesh.scale.set(0.93, 1.0, 0.90);
+
+  // Wrinkles hint — slightly darker patches
+  const wrinkleL = box(0.035, 0.008, 0.012, skin2M);
+  wrinkleL.position.set(-0.055, 0.018, 0.085); wrinkleL.rotation.x = -0.1;
+  const wrinkleR = box(0.035, 0.008, 0.012, skin2M);
+  wrinkleR.position.set( 0.055, 0.018, 0.085); wrinkleR.rotation.x = -0.1;
+
+  // Nose
+  const noseMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.012, 0.022, 0.052, 6), skinM
+  );
+  noseMesh.position.set(0, -0.010, 0.098); noseMesh.rotation.x = -0.42;
+
+  // Ears
+  const earL = sph(0.030, skin2M); earL.position.set(-0.108, 0.010, 0); earL.scale.set(0.5, 0.8, 0.4);
+  const earR = sph(0.030, skin2M); earR.position.set( 0.108, 0.010, 0); earR.scale.set(0.5, 0.8, 0.4);
+
+  // Eyes (with subtle bags — elderly)
+  const eyeWL = sph(0.020, new THREE.MeshPhongMaterial({color:0xf0e8d8})); eyeWL.position.set(-0.040,0.022,0.086);
+  const eyeWR = sph(0.020, new THREE.MeshPhongMaterial({color:0xf0e8d8})); eyeWR.position.set( 0.040,0.022,0.086);
+  const eyeL = sph(0.013, new THREE.MeshPhongMaterial({color:0x2a1a0a}));  eyeL.position.set(-0.040,0.022,0.093);
+  const eyeR = sph(0.013, new THREE.MeshPhongMaterial({color:0x2a1a0a}));  eyeR.position.set( 0.040,0.022,0.093);
+
+  // Mouth
+  const mouthMesh = box(0.058, 0.013, 0.016, new THREE.MeshPhongMaterial({color:0x7a4a3a}));
+  mouthMesh.position.set(0, -0.042, 0.095);
+
+  // Grey hair
+  const hairTop = sph(0.116, hairM); hairTop.position.y = 0.022; hairTop.scale.set(0.94, 0.68, 0.92);
+  // Hair at sides
+  const hairSideL = sph(0.055, hairM); hairSideL.position.set(-0.092, -0.020, -0.008); hairSideL.scale.set(0.5, 0.7, 0.65);
+  const hairSideR = sph(0.055, hairM); hairSideR.position.set( 0.092, -0.020, -0.008); hairSideR.scale.set(0.5, 0.7, 0.65);
+
+  headG.add(neckMesh, hairTop, hairSideL, hairSideR, headMesh,
+            wrinkleL, wrinkleR, noseMesh, earL, earR,
+            eyeWL, eyeWR, eyeL, eyeR, mouthMesh);
+
+  // ── Assemble figure ──
+  fig.add(hipG, lLegG, rLegG, torsoG, lShoulderG, rShoulderG, headG);
+
+  // ── Ground shadow disc ──
+  const shadowM = new THREE.MeshBasicMaterial({color:0x000000, transparent:true, opacity:0.18, side:THREE.DoubleSide});
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.24, 24), shadowM);
+  shadow.rotation.x = -Math.PI/2; shadow.position.y = -0.305;
+  fig.add(shadow);
 
   // ── Anchor ──
   const anchor = mindarThree.addAnchor(0);
   anchor.group.add(fig);
 
   anchor.onTargetFound = () => {
-    document.getElementById('msg').textContent = '◈ The Wanderer — Divine Comedy AR ◈';
+    document.getElementById('msg').textContent = '◈ Cabinet revealed — Divine Comedy AR ◈';
   };
   anchor.onTargetLost = () => {
     document.getElementById('msg').textContent = '⬡ Point at the marker ⬡';
   };
 
-  // ── Animation ──
+  // ════════════════════════════════════════════
+  //  ANIMATION — exercise loop from motion capture
+  //  Cycle: arms raise overhead → side stretch →
+  //         bend forward → stand → repeat
+  //  Legs: weight shift, small knee bends
+  // ════════════════════════════════════════════
   const clock = new THREE.Clock();
+
+  // Animation phases (total cycle = 8 seconds)
+  // Each phase transitions smoothly via sine easing
+  function ease(t) { return (1 - Math.cos(t * Math.PI)) / 2; }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
   renderer.setAnimationLoop(() => {
     const T = clock.getElapsedTime();
-    const w = 1.1; // slow, grave pace
 
-    // Body gentle sway
-    fig.rotation.y   = Math.sin(T * 0.3) * 0.05;
-    robeMain.rotation.y = Math.sin(T * w * 0.5) * 0.04;
-    torso.rotation.z    = Math.sin(T * w) * 0.022;
+    // 8-second looping cycle
+    const cycle = (T % 8) / 8;          // 0→1 over 8s
+    const phase = cycle * 4;             // 4 phases of 2s each
 
-    // Arms swing opposite (walking)
-    lSh.rotation.x  = 0.25 + Math.sin(T * w) * 0.20;
-    rSh.rotation.x  = -0.20 - Math.sin(T * w) * 0.20;
-    lEl.rotation.x  = -0.55 + Math.sin(T * w + 0.5) * 0.12;
-    rEl.rotation.x  =  0.35 - Math.sin(T * w + 0.5) * 0.10;
+    // ── Phase 0–1: Arms raise overhead (like stretching) ──
+    // ── Phase 1–2: Hold overhead, slight side lean ──
+    // ── Phase 2–3: Arms come down, body bends forward ──
+    // ── Phase 3–4: Straighten back up, return to rest ──
 
-    // Head — slow look around, slight nod
-    headG.rotation.y = Math.sin(T * 0.38) * 0.12;
-    headG.rotation.x = 0.04 + Math.sin(T * 0.52) * 0.03;
+    let lArmX=0, lArmZ=0.3, rArmX=0, rArmZ=-0.3;
+    let lElbX=0, rElbX=0;
+    let torsoX=0, torsoZ=0;
+    let lLegX=0, rLegX=0;
+    let lKneeX=0, rKneeX=0;
+    let bodyY=0;
 
-    // Breathing
-    fig.position.y = 0.05 + Math.sin(T * 0.95) * 0.007;
+    if (phase < 1) {
+      // Arms rising overhead
+      const t = ease(phase);
+      lArmX = lerp(0, -1.8, t);
+      rArmX = lerp(0, -1.8, t);
+      lArmZ = lerp(0.3, 0.5, t);
+      rArmZ = lerp(-0.3, -0.5, t);
+      lElbX = lerp(0, 0.3, t);
+      rElbX = lerp(0, 0.3, t);
+      bodyY = lerp(0, 0.018, t);
 
-    // Halo + aura pulse
-    haloM.opacity = 0.22 + Math.sin(T * 1.8) * 0.09;
-    auraM.opacity = 0.12 + Math.sin(T * 1.3) * 0.05;
-    aura.scale.setScalar(1 + Math.sin(T * 1.3) * 0.04);
-    gold.intensity  = 0.7 + Math.sin(T * 1.6) * 0.20;
+    } else if (phase < 2) {
+      // Hold overhead, slight sway side to side
+      const t = ease(phase - 1);
+      lArmX = -1.8;
+      rArmX = -1.8;
+      lArmZ = 0.5 + Math.sin(T * 1.5) * 0.08;
+      rArmZ = -0.5 - Math.sin(T * 1.5) * 0.08;
+      lElbX = 0.3;
+      rElbX = 0.3;
+      torsoZ = Math.sin(T * 1.5) * 0.06;
+      bodyY = 0.018;
+      // Slight weight shift on legs
+      lLegX = Math.sin(T * 1.5) * 0.04;
+      rLegX = -Math.sin(T * 1.5) * 0.04;
+
+    } else if (phase < 3) {
+      // Arms come down, body bends forward
+      const t = ease(phase - 2);
+      lArmX = lerp(-1.8, 0.8, t);   // arms forward/down
+      rArmX = lerp(-1.8, 0.8, t);
+      lArmZ = lerp(0.5, 0.2, t);
+      rArmZ = lerp(-0.5, -0.2, t);
+      lElbX = lerp(0.3, -0.4, t);
+      rElbX = lerp(0.3, -0.4, t);
+      torsoX = lerp(0, 0.55, t);    // bend forward
+      lKneeX = lerp(0, -0.35, t);   // knees bend slightly
+      rKneeX = lerp(0, -0.35, t);
+      bodyY = lerp(0.018, -0.025, t);
+
+    } else {
+      // Straighten back up
+      const t = ease(phase - 3);
+      lArmX = lerp(0.8, 0, t);
+      rArmX = lerp(0.8, 0, t);
+      lArmZ = lerp(0.2, 0.3, t);
+      rArmZ = lerp(-0.2, -0.3, t);
+      lElbX = lerp(-0.4, 0, t);
+      rElbX = lerp(-0.4, 0, t);
+      torsoX = lerp(0.55, 0, t);
+      lKneeX = lerp(-0.35, 0, t);
+      rKneeX = lerp(-0.35, 0, t);
+      bodyY = lerp(-0.025, 0, t);
+    }
+
+    // Apply transforms
+    lShoulderG.rotation.x = lArmX;
+    lShoulderG.rotation.z = lArmZ;
+    rShoulderG.rotation.x = rArmX;
+    rShoulderG.rotation.z = rArmZ;
+    lElbowG.rotation.x = lElbX;
+    rElbowG.rotation.x = rElbX;
+
+    torsoG.rotation.x = torsoX;
+    hipG.rotation.x   = torsoX * 0.3;
+
+    lLegG.rotation.x = lLegX;
+    rLegG.rotation.x = rLegX;
+    lKneeG.rotation.x = lKneeX;
+    rKneeG.rotation.x = rKneeX;
+
+    fig.position.y = -0.30 + bodyY;
+
+    // Head stays more upright (looks ahead)
+    headG.rotation.x = -torsoX * 0.6 + Math.sin(T * 0.4) * 0.03;
+    headG.rotation.y = Math.sin(T * 0.35) * 0.08;
+
+    // Gentle breathing always present
+    const breathe = Math.sin(T * 1.1) * 0.006;
+    chest.scale.y = 1 + breathe * 0.5;
+    chest.scale.x = 1 - breathe * 0.2;
+
+    // Glow pulse
+    glow.intensity = 0.4 + Math.sin(T * 1.8) * 0.15;
 
     mindarThree.renderer.render(scene, camera);
   });
